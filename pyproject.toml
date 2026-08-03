@@ -1,0 +1,27 @@
+[project]
+name = "veo3-kien99"
+version = "0.1.0"
+description = "Local Edge CDP 9223 Google Flow queue and FFmpeg compositor"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Kien Phuc Nguyen" }]
+dependencies = [
+  "fastapi==0.116.1",
+  "uvicorn[standard]==0.35.0",
+  "pydantic==2.11.7",
+  "playwright==1.59.0",
+  "httpx==0.28.1",
+  "python-multipart==0.0.20",
+]
+
+[project.scripts]
+veo3-kien99 = "app.cli:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
