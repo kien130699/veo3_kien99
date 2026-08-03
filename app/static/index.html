@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Veo3 Kien99</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">V3</div>
+        <div><strong>Veo3 Kien99</strong><span>Edge Flow Studio</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-tab="generate">✦ <span>Tạo video</span></button>
+        <button class="nav-item" data-tab="jobs">▤ <span>Hàng đợi</span></button>
+        <button class="nav-item" data-tab="post">◉ <span>Hậu kỳ</span></button>
+        <button class="nav-item" data-tab="logs">⌁ <span>Nhật ký</span></button>
+      </nav>
+      <div class="side-footer">
+        <div class="status-row">
+          <span id="edgeDot" class="dot"></span>
+          <div><b id="edgeLabel">Chưa kiểm tra Edge</b><small id="edgeDetail">CDP 9223</small></div>
+        </div>
+        <button id="checkEdgeBtn" class="ghost full">Kiểm tra kết nối</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Tạo video hàng loạt</h1>
+          <p id="pageSubtitle">Google Flow qua Edge thật · không gọi private API tạo video</p>
+        </div>
+        <div class="top-actions">
+          <span id="mockBadge" class="badge hidden">MOCK</span>
+          <button id="dryRunBtn" class="ghost">Kiểm tra khô</button>
+          <button id="startBtn" class="primary">▶ Bắt đầu</button>
+        </div>
+      </header>
+
+      <section id="tab-generate" class="tab active">
+        <div class="grid two">
+          <section class="card editor-card">
+            <div class="card-head">
+              <div><h2>Danh sách cảnh</h2><p>Mỗi dòng là một cảnh. Dùng <code>___</code> để tách video cuối.</p></div>
+              <div class="file-actions">
+                <input id="promptFile" type="file" accept=".txt,.csv" hidden />
+                <button id="importBtn" class="ghost small">Nhập TXT/CSV</button>
+                <button id="sampleBtn" class="ghost small">Mẫu</button>
+              </div>
+            </div>
+            <div class="format-tip">
+              <b>Định dạng:</b> image prompt <span>|</span> video prompt <span>|</span> duration
+              <small>Dùng <code>\|</code> nếu nội dung prompt có ký tự |</small>
+            </div>
+            <textarea id="promptInput" spellcheck="false" placeholder="A cinematic portrait of... | Slow push-in, subtle breathing... | 8&#10;___&#10;A rainy alley... | Camera tracks forward... | 12"></textarea>
+            <div class="editor-foot">
+              <span id="parseSummary">Chưa có dữ liệu</span>
+              <button id="validateBtn" class="ghost small">Kiểm tra định dạng</button>
+            </div>
+          </section>
+
+          <section class="card settings-card">
+            <div class="card-head"><div><h2>Cấu hình Flow</h2><p>Adapter UI dùng Playwright + CDP.</p></div></div>
+            <label>Edge CDP URL<input id="cdpUrl" value="http://127.0.0.1:9223" /></label>
+            <div class="field-grid">
+              <label>Tỷ lệ<select id="aspect"><option>16:9</option><option>9:16</option><option>1:1</option></select></label>
+              <label>Số output<select id="outputCount"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+            </div>
+            <label>Video model<select id="videoModel"><option>Veo 3.1 Fast</option><option>Veo 3.1 Quality</option><option>Veo 3.1 Lite</option><option>Omni Flash</option></select></label>
+            <label>Image model<select id="imageModel"><option>Nano Banana 2</option><option>Nano Banana Pro</option><option>Imagen 4</option></select></label>
+            <div class="check-list">
+              <label><input id="autoCompose" type="checkbox" checked /> Ghép video tự động theo thời lượng yêu cầu</label>
+              <label><input id="continueLong" type="checkbox" checked /> Cảnh trên 10 giây: nối tiếp bằng frame cuối</label>
+              <label><input id="keepImages" type="checkbox" checked /> Giữ ảnh trung gian</label>
+            </div>
+          </section>
+        </div>
+
+        <section class="card audio-card">
+          <div class="card-head"><div><h2>Âm thanh cuối</h2><p>Nhạc nền và voice được trộn bằng FFmpeg local.</p></div></div>
+          <div class="audio-grid">
+            <div class="drop-zone" data-kind="music">
+              <span>♫</span><div><b>Nhạc nền</b><small id="musicName">Chưa chọn file</small></div>
+              <input id="musicFile" type="file" accept="audio/*" />
+            </div>
+            <label>Âm lượng nhạc<input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.18" /><output id="musicVolumeOut">18%</output></label>
+            <div class="drop-zone" data-kind="voice">
+              <span>◖</span><div><b>Voice / lời đọc</b><small id="voiceName">Không bắt buộc</small></div>
+              <input id="voiceFile" type="file" accept="audio/*" />
+            </div>
+            <label>Âm lượng voice<input id="voiceVolume" type="range" min="0" max="2" step="0.01" value="1" /><output id="voiceVolumeOut">100%</output></label>
+            <label>Âm gốc clip<input id="sourceVolume" type="range" min="0" max="2" step="0.01" value="1" /><output id="sourceVolumeOut">100%</output></label>
+            <label class="switch-line"><input id="normalizeAudio" type="checkbox" checked /> Chuẩn hóa loudness</label>
+          </div>
+        </section>
+
+        <section class="card preview-card">
+          <div class="card-head"><div><h2>Bản phân tích</h2><p>Hiển thị nhóm, cảnh và số lần gọi Flow trước khi chạy.</p></div></div>
+          <div id="planPreview" class="empty-state">Nhấn “Kiểm tra định dạng” để xem kế hoạch.</div>
+        </section>
+      </section>
+
+      <section id="tab-jobs" class="tab">
+        <section class="card">
+          <div class="card-head"><div><h2>Hàng đợi công việc</h2><p>Pause chỉ có hiệu lực sau thao tác Flow đang chạy.</p></div><button id="refreshJobsBtn" class="ghost small">Làm mới</button></div>
+          <div id="jobsList" class="jobs-list"><div class="empty-state">Chưa có job.</div></div>
+        </section>
+      </section>
+
+      <section id="tab-post" class="tab">
+        <section class="card">
+          <div class="card-head"><div><h2>Ghép lại video</h2><p>Chọn job đã có clip, thay nhạc hoặc voice rồi gọi API ghép local.</p></div></div>
+          <div class="post-grid">
+            <label>Job<select id="composeJob"><option value="">Chọn job</option></select></label>
+            <label>Nhóm video<input id="composeGroup" type="number" min="1" placeholder="Để trống = tất cả" /></label>
+            <button id="composeBtn" class="primary">Ghép lại</button>
+          </div>
+          <div id="composeResult" class="result-list"></div>
+        </section>
+      </section>
+
+      <section id="tab-logs" class="tab">
+        <section class="card log-card">
+          <div class="card-head"><div><h2>Nhật ký thời gian thực</h2><p>Không ghi cookie, Bearer token hoặc nội dung request riêng tư.</p></div><button id="clearLogsBtn" class="ghost small">Xóa màn hình</button></div>
+          <pre id="logConsole"></pre>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
