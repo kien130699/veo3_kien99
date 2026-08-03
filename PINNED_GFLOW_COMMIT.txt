@@ -1,0 +1,7 @@
+Upstream: https://github.com/ffroliva/gflow-cli
+Pinned tag: v0.49.0
+Pinned commit: 127c3cc873ca777d5744b0e94dc3dec22337efe9
+License: MIT
+
+Run scripts/bootstrap_gflow.ps1 to clone and verify this exact upstream snapshot.
+The application itself does not silently update or execute the vendor checkout.
