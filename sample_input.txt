@@ -1,0 +1,5 @@
+# Format: image prompt | video prompt | duration in seconds
+Cinematic close-up of a silver-haired explorer inside a glowing cave | Slow push-in, subtle breathing, dust particles drifting through volumetric light | 8
+Ancient mechanical door inside the same cave, matching amber and blue lighting | Camera tracks forward as gears turn and warm light spills through the opening | 12
+___
+A small red robot standing on a rainy neon street | Gentle handheld camera, the robot looks up, reflections ripple across puddles | 6
