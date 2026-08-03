@@ -1,0 +1,6 @@
+veo3_kien99_v2.zip
+SHA-256: c0fec3147b99f904d0781268faca89330373395ac591a3f72d1a75dcafd9576f
+ZIP root: veo3_kien99_v2/
+Tests: 18 passed
+Mock E2E: passed
+Default port: 8766
