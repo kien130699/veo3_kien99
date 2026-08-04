@@ -1,21 +1,58 @@
-# Veo3 Kien99 V2.1.0
+# Veo3 Kien99 V2.2.0
 
 V1 Clean remains in the repository root. V2 remains separate and runs on port `8766`.
 
-## Critical fix from the user's live test
+## Main V2.2 changes
 
-The old V2 selected the **first** Edge tab whose URL looked like Google Flow. When several Flow tabs were open, it often attached to the gallery even though V1 Clean was already attached to a working `/project/...` tab.
+V2.2 keeps all V2 functions and adds **DEBUG-level selector/tab logging** plus fault-tolerant scene processing.
 
-V2.1.0 now uses the proven V1 Clean Flow core:
+### DEBUG logging
 
-1. Scan every Edge context Flow tab.
-2. Prefer a tab containing a visible Slate editor.
-3. Otherwise prefer the newest `/project/` tab.
-4. Only use the gallery when no project tab exists.
-5. After clicking `Dự án mới`, rescan every Flow tab because Flow may open the project in another tab.
-6. Find `Tạo` using label/icon plus distance from the prompt editor instead of assuming it is in the lower half of the page.
+Every job records:
 
-## Full V2 features retained
+```text
+data_v2/jobs/<job_id>/logs/debug.txt
+data_v2/jobs/<job_id>/logs/debug.jsonl
+```
+
+The DEBUG stream includes:
+
+- every Edge tab URL and title;
+- detected Flow UI mode;
+- every prompt selector and match count;
+- candidate visibility, bounding box, text and selection score;
+- the exact prompt editor and submit button selected;
+- UI step name, attempt number, retries and recovery action;
+- exception type, message and traceback.
+
+Failures also save:
+
+```text
+data_v2/jobs/<job_id>/debug/<sequence>_<step>.png
+data_v2/jobs/<job_id>/debug/<sequence>_<step>.json
+```
+
+The snapshot JSON includes active URL/title, tab list, UI mode and a limited body-text sample. Cookies, authorization headers and browser profiles are not exported.
+
+### Agent UI support
+
+The prompt detector now supports the new Flow Agent composer shown on the user's account, including the Vietnamese placeholder:
+
+```text
+Bạn muốn làm gì?
+```
+
+It checks textarea, textbox, contenteditable, aria-label and data-placeholder forms.
+
+### Fault-tolerant queue
+
+- Each UI step retries twice by default.
+- After a UI failure, V2 rescans all Flow tabs and project/editor selectors.
+- A failed scene is recorded in `failed_scenes` and skipped by default.
+- Later scenes and queued jobs continue.
+- CAPTCHA, unusual activity and rate-limit pages still pause the job and are never bypassed.
+
+## Full V2 functions retained
 
 - batch scenes and multiple final videos;
 - FFmpeg composition;
@@ -29,20 +66,22 @@ V2.1.0 now uses the proven V1 Clean Flow core:
 
 ## Validation
 
-- `27 passed` unit/API/compositor/selector tests;
+- `32 passed` unit/API/compositor/selector/debug tests;
 - Python compile check passed;
+- JavaScript syntax check passed;
 - mock end-to-end job completed;
-- two scene clips were composed into one final MP4;
+- a deliberately broken scene was skipped and the next scene completed;
+- two mock scene clips were composed into one final MP4;
 - ZIP integrity passed.
 
 ## Release
 
-ZIP: `veo3_kien99_v2_2.1.0.zip`
+ZIP: `veo3_kien99_v2_2.2.0.zip`
 
 SHA-256:
 
 ```text
-78e3dad9f397474db666739acf84f5127cf031dde605251f46614e4f6ee58897
+ed7e07e87a97f2293367ad89ccdc463882ced79e7b420c29a7755518dad56e19
 ```
 
 Run the extracted package with `START_V2.bat`, then open `http://127.0.0.1:8766`.
