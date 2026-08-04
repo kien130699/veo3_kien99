@@ -1,3 +1,0 @@
-veo3_kien99.zip
-SHA-256: 717cec7269cba37e8ebcb4cd12407a5b799b43acb9df941d97b4a54bcaba092d
-Tests: 15 passed with VEO_MOCK_FLOW=1

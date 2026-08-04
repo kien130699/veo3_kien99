@@ -2,12 +2,6 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+data/
 .env
-data/jobs/*
-!data/jobs/.gitkeep
-data/uploads/*
-!data/uploads/.gitkeep
-output/*
-!output/.gitkeep
-vendor/gflow-cli/
 *.zip

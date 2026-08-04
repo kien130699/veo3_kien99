@@ -1,26 +1,15 @@
 from fastapi.testclient import TestClient
-
 from app.main import app
-
-
-client = TestClient(app)
-
+client=TestClient(app)
 
 def test_health():
-    response = client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json()["gflow_pin"] == "v0.49.0"
+    response=client.get('/api/health');assert response.status_code==200;payload=response.json();assert payload['ok'] is True;assert payload['version']=='1.0.0';assert payload['mock_flow'] is True
 
+def test_scan_mock():
+    response=client.post('/api/scan');assert response.status_code==200;payload=response.json();assert payload['editor_found'] is True;assert payload['submit_enabled'] is True
 
-def test_validate_endpoint():
-    response = client.post(
-        "/api/validate",
-        json={
-            "input_text": "image | video motion | 12",
-            "dry_run": True,
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["duration_plan"] == [[[10, 4]]]
-    assert data["generation_units"] == 3
+def test_generate_mock():
+    response=client.post('/api/generate',json={'prompt':'A red teapot','mode':'image'});assert response.status_code==200;payload=response.json();assert payload['submit_clicked'] is True;assert payload['submit_signal']=='mock_submitted'
+
+def test_generate_rejects_empty_prompt():
+    assert client.post('/api/generate',json={'prompt':''}).status_code==422
