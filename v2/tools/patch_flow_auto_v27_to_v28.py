@@ -9,7 +9,10 @@ def replace_block(text: str, start_pattern: str, end_pattern: str, replacement: 
     pattern = re.compile(
         rf"(?ms)^{start_pattern}.*?(?=^{end_pattern})"
     )
-    updated, count = pattern.subn(replacement.rstrip() + "\n\n", text, count=1)
+    replacement_text = replacement.rstrip() + "\n\n"
+    # Use a callable replacement so backslashes inside the generated Python/JS
+    # source (for example \s, \b and regex groups) are inserted literally.
+    updated, count = pattern.subn(lambda _match: replacement_text, text, count=1)
     if count != 1:
         raise RuntimeError(
             f"Không tìm thấy đúng block cần vá: {start_pattern} -> {end_pattern}"
