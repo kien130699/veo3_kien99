@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class JobState(str, Enum):
@@ -27,6 +27,7 @@ class VideoListSpec(BaseModel):
     list_index: int
     scenes: list[SceneSpec]
 
+    @computed_field(return_type=float)
     @property
     def total_duration(self) -> float:
         return sum(scene.duration for scene in self.scenes)
@@ -36,10 +37,12 @@ class ParseResult(BaseModel):
     lists: list[VideoListSpec]
     warnings: list[str] = Field(default_factory=list)
 
+    @computed_field(return_type=int)
     @property
     def scene_count(self) -> int:
         return sum(len(group.scenes) for group in self.lists)
 
+    @computed_field(return_type=float)
     @property
     def total_duration(self) -> float:
         return sum(group.total_duration for group in self.lists)
