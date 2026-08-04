@@ -1,0 +1,258 @@
+--- app/edge_flow.py (V2.0.3)
++++ app/edge_flow.py (V2.1.0)
+@@ -149,11 +149,67 @@
+             await self.playwright.stop()
+         self.playwright = None
+ 
++    async def _page_has_prompt_editor(self, page: Page) -> bool:
++        """Return True when a visible Flow prompt surface exists on this page."""
++        if page.is_closed():
++            return False
++        for selector in PROMPT_SELECTORS:
++            try:
++                locator = page.locator(selector)
++                count = min(await locator.count(), 20)
++                for index in range(count):
++                    item = locator.nth(index)
++                    if not await item.is_visible():
++                        continue
++                    box = await item.bounding_box()
++                    if box and box["width"] >= 180 and box["height"] >= 20:
++                        return True
++            except Exception:
++                continue
++        return False
++
++    async def _adopt_existing_project_page(self) -> bool:
++        """Switch to an already-open Flow project instead of getting stuck on gallery."""
++        assert self.context is not None
++        candidates = [
++            page for page in self.context.pages
++            if not page.is_closed() and "labs.google/fx" in page.url and "/flow" in page.url
++        ]
++        for page in reversed(candidates):
++            if await self._page_has_prompt_editor(page):
++                self.page = page
++                await page.bring_to_front()
++                return True
++        project_pages = [page for page in candidates if "/project/" in page.url]
++        if project_pages:
++            self.page = project_pages[-1]
++            await self.page.bring_to_front()
++            return True
++        return False
++
+     async def _find_or_open_flow_page(self) -> Page:
+         assert self.context is not None
+-        for page in self.context.pages:
+-            if "labs.google/fx" in page.url and "/flow" in page.url:
++        candidates = [
++            page for page in self.context.pages
++            if not page.is_closed() and "labs.google/fx" in page.url and "/flow" in page.url
++        ]
++
++        # Prefer a tab that already has the Slate editor, then a /project/ tab,
++        # then the most recently opened Flow tab. Never blindly choose the first tab.
++        for page in reversed(candidates):
++            if await self._page_has_prompt_editor(page):
+                 return page
++        project_pages = [page for page in candidates if "/project/" in page.url]
++        if project_pages:
++            return project_pages[-1]
++        if candidates:
++            return candidates[-1]
++
+         page = await self.context.new_page()
+         await page.goto(self.options.flow_url, wait_until="domcontentloaded", timeout=120_000)
+         return page
+@@ -185,7 +241,25 @@
+                 "Automation stopped without attempting to bypass it."
+             )
+ 
+-    async def _ensure_editor(self) -> None:
++    async def _element_text(self, locator) -> str:
++        try:
++            return re.sub(
++                r"\s+",
++                " ",
++                await locator.evaluate(
++                    """el => [
++                        el.innerText || '',
++                        el.textContent || '',
++                        el.getAttribute('aria-label') || '',
++                        el.getAttribute('title') || '',
++                        el.getAttribute('placeholder') || ''
++                    ].join(' ')"""
++                ),
++            ).strip()
++        except Exception:
++            return ""
++
++    async def _find_project_button(self):
+         assert self.page is not None
+         project_pattern = re.compile(
+             r"start project|new project|create project|"
+@@ -193,56 +267,73 @@
+             r"novo projeto|criar projeto|nuevo proyecto|crear proyecto",
+             re.I,
+         )
++        controls = self.page.locator('button:visible, [role="button"]:visible')
++        count = min(await controls.count(), 300)
++        best = None
++        for index in range(count):
++            item = controls.nth(index)
++            text = (await self._element_text(item)).lower()
++            score = 0.0
++            if project_pattern.search(text):
++                score += 220
++            if re.search(r"(^|\s)add(_2)?($|\s)|add_circle", text, re.I):
++                score += 110
++            if score == 0:
++                continue
++            try:
++                box = await item.bounding_box()
++                if not box or box["width"] < 50 or box["height"] < 20:
++                    continue
++                score += min(box["width"], 300) / 50
++            except Exception:
++                continue
++            if best is None or score > best[0]:
++                best = (score, item)
++        return best[1] if best else None
++
++    async def _ensure_editor(self) -> None:
++        assert self.page is not None
++
++        if await self._find_prompt_input(required=False):
++            return
++
++        # Critical V2.1 fix: if another Flow tab is already a project, use it.
++        if await self._adopt_existing_project_page():
++            if await self._find_prompt_input(required=False):
++                await self.log(
++                    "info",
++                    "Using an existing Flow project tab",
++                    {"url": self.page.url},
++                )
++                return
++
++        button = await self._find_project_button()
++        if button is None:
++            raise FlowSelectorError(
++                "Could not find the Flow prompt editor or the Dự án mới button. "
++                "Open a Flow project manually, then retry."
++            )
++
++        await button.scroll_into_view_if_needed()
++        await button.click(timeout=30_000)
++        await self.log(
++            "info",
++            "Opening a Flow project from the gallery",
++            {"url": self.page.url},
++        )
++
++        # New projects can open in the same tab or another Flow tab. Poll both.
++        for _poll in range(60):
++            if await self._find_prompt_input(required=False):
++                return
++            if await self._adopt_existing_project_page():
++                if await self._find_prompt_input(required=False):
++                    return
++            await self.page.wait_for_timeout(500)
++
++        raise FlowSelectorError(
++            "Clicked Dự án mới but the Slate prompt editor did not appear after 30 seconds. "
++            "Open the project manually and retry."
++        )
+@@ -253,7 +344,7 @@
+             for index in range(count):
+                 item = locator.nth(index)
+                 try:
+-                    if await item.is_visible() and await item.is_enabled():
++                    if await item.is_visible():
+                         box = await item.bounding_box()
+                         if box and box["width"] > 180 and box["height"] > 20:
+                             return item
+@@ -477,29 +568,71 @@
+ 
+     async def _click_submit(self) -> None:
+         assert self.page is not None
+-        viewport_h = await self.page.evaluate("window.innerHeight")
+-        buttons = self.page.locator("button")
+-        for _ in range(12):
+-            count = await buttons.count()
++        editor = await self._find_prompt_input()
++        editor_box = await editor.bounding_box()
++        avoid = re.compile(
++            r"download|upload|delete|close|back|settings|tune|more_vert|"
++            r"dự án mới|new project",
++            re.I,
++        )
++
++        deadline = asyncio.get_running_loop().time() + 12
++        last_text = None
++        while asyncio.get_running_loop().time() < deadline:
++            buttons = self.page.locator("button:visible")
++            count = min(await buttons.count(), 320)
++            best = None
+             for index in range(count):
+                 button = buttons.nth(index)
+                 try:
+-                    if not await button.is_visible() or not await button.is_enabled():
++                    text = (await self._element_text(button)).lower()
++                    if avoid.search(text):
+                         continue
+                     box = await button.bounding_box()
+-                    if not box or box["y"] < viewport_h * 0.55:
++                    if not box:
+                         continue
+-                    text = ((await button.inner_text()) or "").strip().lower()
+-                    aria = ((await button.get_attribute("aria-label")) or "").lower()
+-                    if any(icon in text for icon in SUBMIT_ICON_NAMES) or re.search(
+-                        r"generate|create|submit|send|tạo|gerar|criar|crear", f"{text} {aria}", re.I
++                    score = 0.0
++                    if "arrow_forward" in text:
++                        score += 280
++                    if re.search(
++                        r"generate|create|submit|send|tạo|gerar|criar|crear",
++                        text,
++                        re.I,
+                     ):
+-                        await button.click()
+-                        return
++                        score += 180
++                    if editor_box:
++                        dx = abs(
++                            (box["x"] + box["width"] / 2)
++                            - (editor_box["x"] + editor_box["width"])
++                        )
++                        dy = abs(
++                            (box["y"] + box["height"] / 2)
++                            - (editor_box["y"] + editor_box["height"] / 2)
++                        )
++                        score += max(0, 150 - (dx + dy) / 6)
++                    if score < 130:
++                        continue
++                    enabled = await button.is_enabled()
++                    aria_disabled = await button.get_attribute("aria-disabled")
++                    enabled = enabled and aria_disabled != "true"
++                    if best is None or score > best[0]:
++                        best = (score, button, enabled, text)
+                 except Exception:
+                     continue
+-            await self.page.wait_for_timeout(500)
+-        raise FlowSelectorError("Generate/submit button was not found or remained disabled")
++
++            if best is not None:
++                _, button, enabled, last_text = best
++                if enabled:
++                    await button.scroll_into_view_if_needed()
++                    await button.click(timeout=30_000)
++                    return
++            await self.page.wait_for_timeout(250)
++
++        if last_text:
++            raise FlowSelectorError(
++                f"Found the Flow Tạo button but it remained disabled: {last_text}"
++            )
++        raise FlowSelectorError("Could not find the Tạo button near the prompt editor")
