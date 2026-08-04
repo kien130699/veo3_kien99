@@ -1,33 +1,103 @@
-/* FlowPromptTest v1.2 — chạy trong Console của tab Google Flow.
+/* FlowPromptTest v1.3.0 — selector diagnostic only.
+   DevTools Console cannot generate trusted keyboard input for Flow's Slate editor.
+   Use V2.0.3 for real submission through Playwright/CDP.
+
    await FlowPromptTest.scan()
-   await FlowPromptTest.image('prompt ảnh')
-   await FlowPromptTest.video('prompt video')
-   Chỉ điều khiển UI, không gọi private API. */
+   await FlowPromptTest.prepare('image', 'prompt')
+   await FlowPromptTest.prepare('video', 'prompt')
+*/
 (() => {
   'use strict';
-  const V='1.2.0', sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const log=(...x)=>console.log('%c[FlowPromptTest]','color:#9b6cff;font-weight:bold',...x);
-  const S=['[data-slate-editor="true"][contenteditable="true"]','[data-slate-editor="true"]','.ProseMirror[contenteditable="true"]','[role="textbox"][contenteditable="true"]','[contenteditable="true"][data-placeholder]','[contenteditable="true"]','textarea[placeholder*="prompt" i]','textarea'];
-  const D={image:'A red ceramic teapot on a wooden table, soft studio lighting, photorealistic, clean background.',video:'A red ceramic teapot on a wooden table. Slow cinematic push-in, gentle steam rising, stable composition.'};
-  const vis=e=>{if(!(e instanceof Element))return false;const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>2&&r.height>2&&r.bottom>0&&r.right>0&&r.top<innerHeight&&r.left<innerWidth};
-  function roots(){const a=[document],seen=new Set(a);for(let i=0;i<a.length;i++)for(const e of a[i].querySelectorAll?.('*')||[]){if(e.shadowRoot&&!seen.has(e.shadowRoot)){seen.add(e.shadowRoot);a.push(e.shadowRoot)}if(e.tagName==='IFRAME')try{if(e.contentDocument&&!seen.has(e.contentDocument)){seen.add(e.contentDocument);a.push(e.contentDocument)}}catch{}}return a}
-  const q=s=>roots().flatMap(r=>{try{return [...r.querySelectorAll(s)]}catch{return[]}});
-  const txt=e=>[e.innerText,e.textContent,e.getAttribute?.('aria-label'),e.getAttribute?.('title'),e.getAttribute?.('placeholder'),e.getAttribute?.('data-placeholder')].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-  const btxt=e=>(txt(e)+' '+[...e.querySelectorAll('i,span')].map(x=>x.textContent||'').join(' ')).replace(/\s+/g,' ').trim().toLowerCase();
-  const hint=e=>{const a=[e.tagName.toLowerCase()];if(e.id)a.push('#'+CSS.escape(e.id));for(const k of['data-slate-editor','contenteditable','role','aria-label','data-placeholder'])if(e.hasAttribute(k))a.push(`[${k}=${JSON.stringify(e.getAttribute(k))}]`);return a.join('')};
-  function composer(ed){let n=ed;for(let i=0;i<10&&n;i++,n=n.parentElement)if([...(n.querySelectorAll?.('button')||[])].some(b=>/arrow_forward|send|generate|create/.test(btxt(b))))return n;return ed.parentElement||document.body}
-  function score(e){if(!vis(e))return-1e9;const r=e.getBoundingClientRect();if(r.width<180||r.height<20)return-1e9;let s=r.top>innerHeight*.4?30:0;if(e.matches('[data-slate-editor="true"]'))s+=160;if(e.matches('.ProseMirror'))s+=120;if(e.getAttribute('role')==='textbox')s+=90;if(e.matches('textarea'))s+=70;if(e.getAttribute('contenteditable')==='true')s+=50;if(/prompt|describe|mô tả|nhập/i.test(txt(e)))s+=30;if(composer(e)!==document.body)s+=50;if(r.height>250)s-=40;return s}
-  function editors(){const seen=new Set();return S.flatMap(q).filter(e=>!seen.has(e)&&seen.add(e)).map(e=>({e,s:score(e)})).filter(x=>x.s>-1e8).sort((a,b)=>b.s-a.s)}
-  function editor(required=true){const e=editors()[0]?.e||null;if(!e&&required)throw Error('Không tìm thấy prompt editor. Mở project Flow hoặc thoát Agent mode rồi chạy scan().');return e}
-  function mark(e,c='#9b6cff'){const old=e.style.outline;e.style.outline=`4px solid ${c}`;e.scrollIntoView({block:'center'});setTimeout(()=>e.style.outline=old,5000)}
-  function newProject(){const re=/new project|create project|start project|dự án mới|tạo dự án|novo projeto|nuevo proyecto/i;return q('button,[role="button"]').filter(vis).map(e=>{const t=btxt(e);return{e,s:(re.test(t)?150:0)+(/(^|\s)add($|\s)|add_circle/.test(t)?90:0)}}).filter(x=>x.s>=90).sort((a,b)=>b.s-a.s)[0]?.e||null}
-  async function ensure(){let e=editor(false);if(e)return e;const b=newProject();if(!b)throw Error('Đang ở gallery nhưng không tìm thấy nút tạo project. Hãy tự mở một project Flow.');log('Mở project:',btxt(b));b.click();for(let i=0;i<40;i++){await sleep(500);e=editor(false);if(e)return e}throw Error('Đã bấm tạo project nhưng editor chưa xuất hiện sau 20 giây.')}
-  function modeTab(mode){const n=mode==='image'?'IMAGE':'VIDEO',re=mode==='image'?/^(image|ảnh|imagem|imagen)$/i:/^(video|vídeo)$/i;return q('[role="tab"],button,[role="menuitem"]').filter(vis).map(e=>({e,s:((e.getAttribute('aria-controls')||'').toUpperCase().includes(n)?200:0)+(re.test(btxt(e).trim())?120:0)})).filter(x=>x.s).sort((a,b)=>b.s-a.s)[0]?.e||null}
-  async function switchMode(mode,ed){let t=modeTab(mode);if(t){t.click();await sleep(600);return true}const box=composer(ed),tr=[...box.querySelectorAll('button[aria-haspopup="menu"]'),...q('button[aria-haspopup="menu"]')].filter(vis).map(e=>({e,s:(/crop_16_9|crop_9_16|crop_square|image|video|tune/.test(btxt(e))?100:0)+(box.contains(e)?60:0)})).sort((a,b)=>b.s-a.s)[0]?.e;if(!tr){console.warn('[FlowPromptTest] Không thấy menu mode; dùng mode hiện tại.');return false}tr.click();await sleep(500);t=modeTab(mode);if(!t){console.warn(`[FlowPromptTest] Không thấy tab ${mode}; dùng mode hiện tại.`);return false}t.click();await sleep(650);return true}
-  function setValue(e,v){if(e instanceof HTMLTextAreaElement||e instanceof HTMLInputElement){const p=e instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value')?.set?.call(e,v);e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:v}));e.dispatchEvent(new Event('change',{bubbles:true}));return}e.focus();const r=document.createRange();r.selectNodeContents(e);const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('delete');const ok=document.execCommand('insertText',false,v);if(!ok||!(e.innerText||e.textContent||'').trim()){e.textContent=v;e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:v}))}}
-  function submit(ed){const box=composer(ed),avoid=/download|upload|back|close|delete|settings|tune|more_vert/,seen=new Set();return[...box.querySelectorAll('button'),...q('button')].filter(e=>!seen.has(e)&&seen.add(e)&&vis(e)&&!e.disabled&&e.getAttribute('aria-disabled')!=='true').map(e=>{const t=btxt(e);let s=box.contains(e)?80:0;if(/arrow_forward/.test(t))s+=220;if(/(^|\s)send($|\s)|generate|create|submit|tạo/.test(t))s+=130;if(avoid.test(t))s-=300;return{e,s}}).filter(x=>x.s>100).sort((a,b)=>b.s-a.s)[0]?.e||null}
-  async function scan(){const a=editors();console.table(a.map((x,i)=>{const r=x.e.getBoundingClientRect();return{rank:i+1,score:x.s,selector:hint(x.e),width:Math.round(r.width),height:Math.round(r.height),top:Math.round(r.top),text:txt(x.e).slice(0,90)}}));if(a[0]){mark(a[0].e);log('Editor ưu tiên:',hint(a[0].e),a[0].e)}else{console.warn('[FlowPromptTest] Không thấy editor. URL:',location.href);const b=newProject();if(b){mark(b,'#ffb020');log('Nút tạo project:',b)}}return{version:V,url:location.href,editorCount:a.length,bestEditor:a[0]?hint(a[0].e):null}}
-  async function run(mode,prompt=D[mode]){if(!['image','video'].includes(mode))throw Error('mode phải là image hoặc video');let e=await ensure();mark(e);const switched=await switchMode(mode,e);e=editor();setValue(e,prompt);await sleep(400);if(!(e.value||e.innerText||e.textContent||'').trim())throw Error('Tìm thấy editor nhưng không ghi được prompt.');const b=submit(e);if(!b){await scan();throw Error('Không tìm thấy nút Generate/Create/arrow_forward.')}mark(b,'#ff4fd8');log(`Submit ${mode}; switch=${switched}`,{editor:hint(e),button:btxt(b),prompt});b.click();return{ok:true,mode,switched,editor:hint(e),button:btxt(b),prompt}}
-  window.FlowPromptTest=Object.freeze({version:V,scan,image:(p=D.image)=>run('image',p),video:(p=D.video)=>run('video',p),run});
-  log(`Nạp xong v${V}. Chạy: await FlowPromptTest.scan() / image() / video()`);
+  const V = '1.3.0';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const log = (...args) => console.log('%c[FlowPromptTest]', 'color:#9b6cff;font-weight:bold', ...args);
+  const selectors = [
+    '[data-slate-editor="true"][contenteditable="true"]',
+    '[data-slate-editor="true"]',
+    '.ProseMirror[contenteditable="true"]',
+    '[role="textbox"][contenteditable="true"]',
+    '[contenteditable="true"][data-placeholder]',
+    'textarea[placeholder*="prompt" i]',
+    'textarea'
+  ];
+  const visible = e => {
+    if (!(e instanceof Element)) return false;
+    const s = getComputedStyle(e), r = e.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 2 && r.height > 2;
+  };
+  const text = e => [
+    e.innerText, e.textContent, e.getAttribute?.('aria-label'),
+    e.getAttribute?.('title'), e.getAttribute?.('placeholder')
+  ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  const roots = () => {
+    const all = [document], seen = new Set(all);
+    for (let i = 0; i < all.length; i++) {
+      for (const e of all[i].querySelectorAll?.('*') || []) {
+        if (e.shadowRoot && !seen.has(e.shadowRoot)) { seen.add(e.shadowRoot); all.push(e.shadowRoot); }
+      }
+    }
+    return all;
+  };
+  const query = selector => roots().flatMap(r => {
+    try { return [...r.querySelectorAll(selector)]; } catch { return []; }
+  });
+  const findEditor = () => {
+    for (const selector of selectors) {
+      const item = query(selector).find(visible);
+      if (item) return item;
+    }
+    return null;
+  };
+  const findProjectButton = () => {
+    const re = /new project|create project|start project|dự án mới|tạo dự án|novo projeto|nuevo proyecto/i;
+    return query('button,[role="button"]').find(e => visible(e) && (re.test(text(e)) || /(^|\s)add(_2)?($|\s)/i.test(text(e))));
+  };
+  const mark = (e, color = '#9b6cff') => {
+    const old = e.style.outline;
+    e.style.outline = `4px solid ${color}`;
+    e.scrollIntoView({ block: 'center' });
+    setTimeout(() => { e.style.outline = old; }, 5000);
+  };
+  async function scan() {
+    const editor = findEditor();
+    if (editor) {
+      mark(editor);
+      log('Tìm thấy Slate editor:', editor);
+      return { version: V, url: location.href, editorFound: true };
+    }
+    const project = findProjectButton();
+    if (project) {
+      mark(project, '#ffb020');
+      log('Đang ở gallery. Nút tạo project:', project);
+    }
+    return { version: V, url: location.href, editorFound: false, projectButtonFound: Boolean(project) };
+  }
+  async function ensureEditor() {
+    let editor = findEditor();
+    if (editor) return editor;
+    const project = findProjectButton();
+    if (!project) throw new Error('Không tìm thấy editor hoặc nút Dự án mới.');
+    project.click();
+    for (let i = 0; i < 40; i++) {
+      await sleep(500);
+      editor = findEditor();
+      if (editor) return editor;
+    }
+    throw new Error('Đã mở project nhưng editor chưa xuất hiện.');
+  }
+  async function prepare(mode, prompt) {
+    const editor = await ensureEditor();
+    mark(editor);
+    editor.focus();
+    try {
+      await navigator.clipboard.writeText(prompt || '');
+      log(`Đã copy prompt ${mode} vào clipboard. Bấm Ctrl+V thủ công trong ô đang viền tím.`);
+    } catch {
+      log('Không ghi được clipboard. Copy prompt thủ công rồi Ctrl+V vào ô viền tím.');
+    }
+    console.warn('[FlowPromptTest] Không tự chèn hoặc submit prompt từ Console vì Flow Slate có thể hiện chữ nhưng state vẫn rỗng. Dùng V2.0.3 để nhập bằng keyboard thật qua CDP.');
+    return { ok: true, mode, editorFound: true, autoSubmitted: false };
+  }
+  window.FlowPromptTest = Object.freeze({ version: V, scan, prepare });
+  log(`Nạp xong v${V}. Đây là công cụ dò selector, không tự submit. Chạy await FlowPromptTest.scan()`);
 })();
